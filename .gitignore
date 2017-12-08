@@ -15,3 +15,5 @@ vignettes/TransPhylo.log
 *.o
 
 *.so
+
+Testing_stuff/*

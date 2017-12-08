@@ -4,6 +4,7 @@
 #' @param w.scale Scale parameter of the Gamma probability density function representing the generation time 
 #' @param ws.shape Shape parameter of the Gamma probability density function representing the sampling time
 #' @param ws.scale Scale parameter of the Gamma probability density function representing the sampling time 
+#' @param update.w.scale Whether of not to update the parameter w.scale
 #' @param mcmcIterations Number of MCMC iterations to run the algorithm for
 #' @param thinning MCMC thinning interval between two sampled iterations
 #' @param startNeg Starting value of within-host coalescent parameter Ne*g
@@ -20,9 +21,14 @@
 #' @param dateT Date when process stops (this can be Inf for fully simulated outbreaks)
 #' @return posterior sample set of transmission trees
 #' @export
-inferTTree = function(ptree,w.shape=2,w.scale=1,ws.shape=w.shape,ws.scale=w.scale,mcmcIterations=1000,thinning=1,startNeg=100/365,startOff.r=1,startOff.p=0.5,startPi=0.5,updateNeg=T,updateOff.r=T,updateOff.p=F,updatePi=T,startCTree=NA,updateTTree=TRUE,optiStart=T,dateT=Inf) {
-#  memoise::forget(.getOmegabar)
-#  memoise::forget(.probSubtree)
+inferTTree = function(ptree, w.shape=2, w.scale=1, ws.shape=w.shape, ws.scale=w.scale,
+                      mcmcIterations=1000, thinning=1, startNeg=100/365, startOff.r=1,
+                      startOff.p=0.5, startPi=0.5, updateNeg=TRUE, updateOff.r=TRUE,
+                      updateOff.p=FALSE, updatePi=TRUE, startCTree=NA, updateTTree=TRUE,
+                      update.w.scale=FALSE, optiStart=TRUE,dateT=Inf) {
+  
+  if (update.w.scale && updatePi) stop("Error: can not estimate pi and w.scale simultaneously.")
+
   ptree$ptree[,1]=ptree$ptree[,1]+runif(nrow(ptree$ptree))*1e-10#Ensure that all leaves have unique times
   #MCMC algorithm
   neg <- startNeg
@@ -53,7 +59,11 @@ inferTTree = function(ptree,w.shape=2,w.scale=1,ws.shape=w.shape,ws.scale=w.scal
       record[[i/thinning]]$ws.shape <- ws.shape
       record[[i/thinning]]$ws.scale <- ws.scale
       record[[i/thinning]]$source <- ctree$ctree[ctree$ctree[which(ctree$ctree[,4]==0),2],4]
-      if (record[[i/thinning]]$source<=length(ctree$nam)) record[[i/thinning]]$source=ctree$nam[record[[i/thinning]]$source] else record[[i/thinning]]$source='Unsampled'
+      if (record[[i/thinning]]$source<=length(ctree$nam)) {
+        record[[i/thinning]]$source=ctree$nam[record[[i/thinning]]$source] 
+      } else { 
+        record[[i/thinning]]$source='Unsampled'
+      }
     }
     
     if (updateTTree) {
@@ -78,6 +88,16 @@ inferTTree = function(ptree,w.shape=2,w.scale=1,ws.shape=w.shape,ws.scale=w.scal
       if (log(runif(1)) < pPTree2-pPTree-neg2+neg)  {neg <- neg2;pPTree <- pPTree2} 
     }
     
+    if (update.w.scale) {
+      #Metropolis update for w.scale, assuming Exp(1) prior 
+      w.scale.2 <- abs(w.scale + (runif(1)-0.5)*0.5)
+      pTTree2 <- TransPhylo:::probTTree(ttree$ttree,off.r2,off.p,pi,w.shape,w.scale.2,ws.shape,ws.scale,dateT) 
+      if (log(runif(1)) < pTTree2-pTTree-w.scale.2+w.scale)  {
+        w.scale <- w.scale.2
+        pTTree <- pTTree2
+      }
+    }
+    
     if (updateOff.r) {
       #Metropolis update for off.r, assuming Exp(1) prior 
       off.r2 <- abs(off.r + (runif(1)-0.5)*0.5)
@@ -92,8 +112,8 @@ inferTTree = function(ptree,w.shape=2,w.scale=1,ws.shape=w.shape,ws.scale=w.scal
       pTTree2 <- probTTree(ttree$ttree,off.r,off.p2,pi,w.shape,w.scale,ws.shape,ws.scale,dateT) 
       if (log(runif(1)) < pTTree2-pTTree)  {off.p <- off.p2;pTTree <- pTTree2}
     }
-
-        if (updatePi) {
+    
+    if (updatePi) {
       #Metropolis update for pi, assuming Unif(0.01,1) prior 
       pi2 <- pi + (runif(1)-0.5)*0.1
       if (pi2<0.01) pi2=0.02-pi2
@@ -103,7 +123,6 @@ inferTTree = function(ptree,w.shape=2,w.scale=1,ws.shape=w.shape,ws.scale=w.scal
     }
     
   }#End of main MCMC loop
-  
-  #close(pb)
+
   return(record)
 }
