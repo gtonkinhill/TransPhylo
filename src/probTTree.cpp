@@ -138,8 +138,9 @@ double alpha(double tinf, int d, double p, double r, NumericVector wbar0, double
 
 
 // [[Rcpp::export]]
-NumericVector wbar(double tinf, double dateT, double rOff, double pOff, double pi, double shGen, double scGen, double shSam, double scSam, double delta_t=0.05)
+NumericVector wbar(double tinf, double dateT, double rOff, double pOff, double pi, double shGen, double scGen, double shSam, double scSam, double delta_t)
 {
+  double temp_delta_t = scGen*0.1;
   int n = std::round((dateT-tinf)/delta_t); 
   NumericVector grid(n);
   for(int i=0; i<n; ++i) // use the left point of each subinterval
@@ -172,7 +173,7 @@ NumericVector wbar(double tinf, double dateT, double rOff, double pOff, double p
     sumPrev = gam[0] + w[i+0];
     for(int j=0; j<n-i; ++j)
       sumPrev = log_sum_exp(sumPrev, gam[j] + w[i+j]);
-    sumPrev = log_sum_exp(sumPrev, log(0.5) + gam[n-i]);
+    sumPrev = log_sum_exp(sumPrev, log(0.5) + gam[n-i] + w[n-i]);
   }
   
   return out;
@@ -180,7 +181,7 @@ NumericVector wbar(double tinf, double dateT, double rOff, double pOff, double p
 
 
 // [[Rcpp::export]]
-double probTTree(NumericMatrix ttree, double rOff, double pOff, double pi, double shGen, double scGen, double shSam, double scSam, double dateT, double delta_t=0.1){
+double probTTree(NumericMatrix ttree, double rOff, double pOff, double pi, double shGen, double scGen, double shSam, double scSam, double dateT, double delta_t=0.001){
   
   int numCases = ttree.nrow();
   boost::math::gamma_distribution<double> genGamma(shGen, scGen);
