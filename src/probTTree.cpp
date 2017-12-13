@@ -139,13 +139,20 @@ double alpha(double tinf, int d, double p, double r, NumericVector wbar0, double
 // [[Rcpp::export]]
 NumericVector wbar(double tinf, double dateT, double rOff, double pOff, double pi, double shGen, double scGen, double shSam, double scSam, double delta_t)
 {
-  
+  int n = std::round((dateT-tinf)/delta_t);
+  if(n>1e4) throw(Rcpp::exception("error!! delta_t is too small."));
   double old_delta_t = delta_t;
+  
   if(delta_t > sqrt(shGen)*scGen*0.5){
     delta_t = sqrt(shGen)*scGen*0.5;
+    n = std::round((dateT-tinf)/delta_t); 
+    if(n>1e4){ //Maximum number of segments to stop it going on for ages
+      delta_t = (dateT-tinf)/10000.0;
+    }
   }
   
-  int n = std::round((dateT-tinf)/delta_t); 
+  n = std::round((dateT-tinf)/delta_t);
+  
   NumericVector grid(n);
   for(int i=0; i<n; ++i) // use the left point of each subinterval
     grid[i] = dateT-n*delta_t+i*delta_t;
