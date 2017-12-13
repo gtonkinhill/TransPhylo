@@ -96,7 +96,7 @@ inferTTree = function(ptree, w.shape=2, w.scale=1, ws.shape=w.shape, ws.scale=w.
     if (update.w.scale) {
       #Metropolis update for w.scale, assuming Exp(1) prior 
       w.scale.2 <- abs(w.scale + (runif(1)-0.5)*0.5)
-      pTTree2 <- TransPhylo:::probTTree(ttree$ttree,off.r,off.p,pi,w.shape,w.scale.2,ws.shape,ws.scale,dateT) 
+      pTTree2 <-probTTree(ttree$ttree,off.r,off.p,pi,w.shape,w.scale.2,ws.shape,ws.scale,dateT) 
       if (log(runif(1)) < pTTree2-pTTree-w.scale.2+w.scale)  {
         w.scale <- w.scale.2
         pTTree <- pTTree2
