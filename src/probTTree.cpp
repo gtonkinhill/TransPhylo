@@ -168,12 +168,26 @@ NumericVector wbar(double tinf, double dateT, double rOff, double pOff, double p
   for(int i=n-1; i>=0; --i){
     
     if(log(delta_t)+sumPrev > 0){
+<<<<<<< HEAD
       w[i] = log_subtract_exp(0.0, pi2[i]) + rOff*(log(1-pOff) - log_subtract_exp(
         log_subtract_exp(0.0, log(pOff)+F[i]), log(pOff)+0.0));
     } else {
       w[i] = log_subtract_exp(0.0, pi2[i]) + rOff*(log(1-pOff) - log_subtract_exp(
         log_subtract_exp(0.0, log(pOff)+F[i]), log(pOff)+log(delta_t)+sumPrev));
     }
+=======
+      // w[i] = (1-pi2[i]) * pow((1-pOff)/(1-pOff*F[i]-pOff*1), rOff);
+      w[i] = log_subtract_exp(0.0, pi2[i]) + rOff*(log(1-pOff) - log_subtract_exp(
+        log_subtract_exp(0.0, log(pOff)+F[i]), log(pOff)+0.0));
+    } else {
+      // w[i] = (1-pi2[i]) * pow((1-pOff)/(1-pOff*F[i]-pOff*delta_t*sumPrev), rOff);
+      w[i] = log_subtract_exp(0.0, pi2[i]) + rOff*(log(1-pOff) - log_subtract_exp(
+        log_subtract_exp(0.0, log(pOff)+F[i]), log(pOff)+log(delta_t)+sumPrev));
+    }
+    
+    
+    
+>>>>>>> seems to be working. Just need a more automatic way of determining the interval
     
     out[i] = log_sum_exp(F[i], sumPrev + log(delta_t));
     
