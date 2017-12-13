@@ -19,6 +19,7 @@
 #include <boost/math/distributions/negative_binomial.hpp>
 #include <boost/math/distributions/gamma.hpp>
 #include <limits>
+#include <iomanip>
 using namespace Rcpp;
 
 struct wstar_functor
@@ -140,41 +141,102 @@ double alpha(double tinf, int d, double p, double r, NumericVector wbar0, double
 // [[Rcpp::export]]
 NumericVector wbar(double tinf, double dateT, double rOff, double pOff, double pi, double shGen, double scGen, double shSam, double scSam, double delta_t)
 {
-  double temp_delta_t = scGen*0.1;
-  int n = std::round((dateT-tinf)/delta_t); 
+  int n = std::round((dateT-tinf)/delta_t);
+  // int inflation = 10;
+  // n = inflation*n;
+  // 
+  // Rcout << "delta_t: " << delta_t << std::endl;
+  // 
+  // delta_t = (dateT-tinf)/n;
+  
+  Rcout << "new_delta_t: " << delta_t << std::endl;
+  Rcout << "sqrt(shape)*scale: " << sqrt(shGen)*scGen << std::endl;
+  Rcout << "gamma mode: " << (shGen-1)*scGen << std::endl;
+
   NumericVector grid(n);
   for(int i=0; i<n; ++i) // use the left point of each subinterval
     grid[i] = dateT-n*delta_t+i*delta_t;
+  
+  // Rcout << "grid: " << std::fixed << std::setprecision(5) << grid << std::endl;
   
   NumericVector pi2(n);
   for(int i=0; i<n; ++i)
     pi2[i] = log(pi)+R::pgamma(dateT-grid[i], shSam, scSam, 1, 1);
   
+  // Rcout << "pi2: " << pi2 << std::endl;
+  
   NumericVector F(n);
   for(int i=0; i<n; ++i)
     F[i] = R::pgamma(dateT-grid[i], shGen, scGen, 0, 1);
   
-  NumericVector w(n+1), out(n+1);
+  // Rcout << "F: " << F << std::endl;
+  
+  NumericVector w(n+1), out(n+1), test(n+1);
   out[n] = w[n] = 0.0;
   
   NumericVector gam(n);
   for(double i=1; i<n+1; ++i)
     gam[i-1] = R::dgamma(i*delta_t,shGen,scGen,1);
   
+  // Rcout << "gam: " << gam << std::endl;
+  
   double sumPrev = log(0.5) + gam[0];
   for(int i=n-1; i>=0; --i){
-    w[i] = log_subtract_exp(0.0, pi2[i]) + rOff*(log(1-pOff) - log_subtract_exp(
-      log_subtract_exp(0.0, log(pOff)+F[i]), log(pOff)+log(delta_t)+sumPrev));
+    if(log_sum_exp(F[i], sumPrev) > 0){
+      w[i] = log_subtract_exp(0.0, pi2[i]) + rOff*(log(1-pOff) - log_subtract_exp(
+        log_subtract_exp(0.0, log(pOff)+F[i]), log(pOff)+0.0));
+
+    } else {
+      w[i] = log_subtract_exp(0.0, pi2[i]) + rOff*(log(1-pOff) - log_subtract_exp(
+        log_subtract_exp(0.0, log(pOff)+F[i]), log(pOff)+sumPrev));
+    }
     
-    out[i] = log_sum_exp(F[i], sumPrev + log(delta_t));
+    out[i] = log_sum_exp(F[i], sumPrev);
+    
+    if(isnan(w[i])){
+      Rcout << "i: " << i << std::endl;
+      Rcout << "i*delta_t: " << i*delta_t << std::endl;
+      Rcout << "n: " << n << std::endl;
+      Rcout << "delta_t: " << delta_t << std::endl;
+      Rcout << "tinf+i*delta_t: " << tinf+i*delta_t << std::endl;
+      Rcout << "tinf+n*delta_t: " << tinf+n*delta_t << std::endl;
+      Rcout << "dateT: " << dateT << std::endl;
+      Rcout << "tinf: " << tinf << std::endl;
+      Rcout << "log_subtract_exp(0.0, log(pOff)+F[i]): " << log_subtract_exp(0.0, log(pOff)+F[i]) << std::endl;
+      Rcout << "log_subtract_explog_subtract_exp: " << log_subtract_exp(
+          log_subtract_exp(0.0, log(pOff)+F[i]), log(pOff)+sumPrev) << std::endl;
+      Rcout << "F[i]: " << F[i] << std::endl;
+      Rcout << "log(pOff): " << log(pOff) << std::endl;
+      Rcout << "log(delta_t): " << log(delta_t) << std::endl;
+      Rcout << "sumPrev: " << sumPrev << std::endl;
+      Rcout << "log(pOff)+sumPrev: " << log(pOff)+sumPrev << std::endl;
+      Rcout << "test_sumPrev: " << test << std::endl;
+      Rcout << "test_sumPrev: " << test << std::endl;
+      Rcout << "out: " << out << std::endl;
+      throw(Rcpp::exception(
+          "error!! NA value log_subtract_exp(log_subtract_exp("));
+    }
     
     if(isnan(out[i])) throw(Rcpp::exception("error!! NA value in calulating wbar."));
     
     sumPrev = gam[0] + w[i+0];
-    for(int j=0; j<n-i; ++j)
-      sumPrev = log_sum_exp(sumPrev, gam[j] + w[i+j]);
-    sumPrev = log_sum_exp(sumPrev, log(0.5) + gam[n-i] + w[n-i]);
+    for(int j=1; j<n-i; ++j)
+      sumPrev = log_sum_exp(sumPrev, gam[j] + w[i+j] + log(delta_t));
+    sumPrev = log_sum_exp(sumPrev, log(0.5) + gam[n-i] + w[n-i] + log(delta_t));
+    
+    test[i] = sumPrev;
   }
+  
+  // int n_orig = std::round((dateT-tinf)/delta_t);
+  // NumericVector out_final(n_orig+1);
+  // for (int i=0; i<n_orig; ++i){
+  //   out_final[i] = out[inflation*i];
+  // }
+  
+  // Rcout << "out_final: " << out_final << std::endl;
+  Rcout << "out: " << out << std::endl;
+  Rcout << "wstar_root: " << log(wstar_rootFinder(pi, pOff, rOff)) << std::endl;
+  
   
   return out;
 }
