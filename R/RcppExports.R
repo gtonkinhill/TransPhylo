@@ -5,7 +5,7 @@ wbar <- function(tinf, dateT, rOff, pOff, pi, shGen, scGen, shSam, scSam, delta_
     .Call('_TransPhylo_wbar', PACKAGE = 'TransPhylo', tinf, dateT, rOff, pOff, pi, shGen, scGen, shSam, scSam, delta_t)
 }
 
-probTTree <- function(ttree, rOff, pOff, pi, shGen, scGen, shSam, scSam, dateT, delta_t = 0.001) {
+probTTree <- function(ttree, rOff, pOff, pi, shGen, scGen, shSam, scSam, dateT, delta_t = 0.01) {
     .Call('_TransPhylo_probTTree', PACKAGE = 'TransPhylo', ttree, rOff, pOff, pi, shGen, scGen, shSam, scSam, dateT, delta_t)
 }
 

@@ -142,8 +142,8 @@ NumericVector wbar(double tinf, double dateT, double rOff, double pOff, double p
 {
   
   double old_delta_t = delta_t;
-  if(delta_t > sqrt(shGen)*scGen*0.1){
-    delta_t = sqrt(shGen)*scGen*0.1;
+  if(delta_t > sqrt(shGen)*scGen*0.5){
+    delta_t = sqrt(shGen)*scGen*0.5;
   }
   
   int n = std::round((dateT-tinf)/delta_t); 
