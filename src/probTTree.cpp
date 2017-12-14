@@ -209,8 +209,7 @@ NumericVector wbar(double tinf, double dateT, double rOff, double pOff, double p
 double probTTree(NumericMatrix ttree, double rOff, double pOff, double pi, double shGen, double scGen, double shSam, double scSam, double dateT, double delta_t=0.01){
   
   int numCases = ttree.nrow();
-  boost::math::gamma_distribution<double> genGamma(shGen, scGen);
-  
+
   if(dateT == INFINITY){ // finished outbreak
     double wstar = wstar_rootFinder(pi, pOff, rOff);
     
@@ -225,15 +224,14 @@ double probTTree(NumericMatrix ttree, double rOff, double pOff, double pi, doubl
       progeny[ttree(i,2)-1].push_back(i); // C++ index starts from 0
       infMap[ttree(i,2)-1] = progeny[ttree(i,2)-1]; 
     }
-    
     double accum = 0.0;
     for(int i=0; i<numCases; ++i){
       accum += alphastar(progeny[i].size(), pOff, rOff, wstar);
       
-      for(int j=0; j<progeny[i].size(); ++j)
-        accum += log(pdf(genGamma, ttree(progeny[i][j],0) - ttree(i,0)));
+      for(int j=0; j<progeny[i].size(); ++j){
+        accum += R::dgamma(ttree(progeny[i][j],0) - ttree(i,0), shGen, scGen, 1);
+      }
     }
-    
     return sum(lsstatus) + accum;
   }
   else{
