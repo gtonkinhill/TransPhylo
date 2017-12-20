@@ -109,6 +109,7 @@ double alphastar(int d, double p, double r, double wstar)
 wbar0 --- wbar computed from wbar() using the oldest infection time. */
 double alpha(double tinf, int d, double p, double r, NumericVector wbar0, double gridStart, double delta_t)
 {
+  
   double wbar_tinf = wbar0[std::round((tinf - gridStart)/delta_t)];
   if(std::abs(r-1.0)<1e-6) // Exact solution available
     return log((1-p))-log_subtract_exp(0.0,log(p)+wbar_tinf)+d*(log(p)-log_subtract_exp(0.0, log(p)+wbar_tinf));
@@ -126,6 +127,8 @@ double alpha(double tinf, int d, double p, double r, NumericVector wbar0, double
     
     k++;
     
+    if(k>1e6) throw(Rcpp::exception("too many iterations, giving up!"));
+
   }
   
   NumericVector ltoSumR = wrap(ltoSum); // Convert toSum to Rcpp NumericVector
@@ -139,9 +142,16 @@ double alpha(double tinf, int d, double p, double r, NumericVector wbar0, double
 // [[Rcpp::export]]
 NumericVector wbar(double tinf, double dateT, double rOff, double pOff, double pi, double shGen, double scGen, double shSam, double scSam, double delta_t)
 {
+  
+
   int n = std::round((dateT-tinf)/delta_t);
   if(n>1e4) throw(Rcpp::exception("error!! delta_t is too small."));
   double old_delta_t = delta_t;
+  
+  if(rOff>5){
+    delta_t=0.001;
+  }
+  // delta_t=0.001;
   
   if(delta_t > sqrt(shGen)*scGen*0.5){
     delta_t = sqrt(shGen)*scGen*0.5;
@@ -209,13 +219,14 @@ NumericVector wbar(double tinf, double dateT, double rOff, double pOff, double p
 double probTTree(NumericMatrix ttree, double rOff, double pOff, double pi, double shGen, double scGen, double shSam, double scSam, double dateT, double delta_t=0.01){
   
   int numCases = ttree.nrow();
+  
+  if(shGen*scGen<0.001) throw(Rcpp::exception("error!! mean of gamma is too small."));
 
   if(dateT == INFINITY){ // finished outbreak
     double wstar = wstar_rootFinder(pi, pOff, rOff);
     
-    NumericVector sstatus = ifelse(is_na(ttree(_,1)), 1-pi, pi*dgamma(ttree(_,1)-ttree(_,0),shSam,scSam));
-    NumericVector lsstatus = log(sstatus);
-    
+    NumericVector lsstatus = ifelse(is_na(ttree(_,1)), log(1-pi), log(pi)+dgamma(ttree(_,1)-ttree(_,0),shSam,scSam,1));
+
     std::map<int, std::vector<int> > infMap; // Map from infector to infected
     std::vector<std::vector<int> > progeny(numCases);
     for(int i=0; i<numCases; ++i){
@@ -236,10 +247,11 @@ double probTTree(NumericMatrix ttree, double rOff, double pOff, double pi, doubl
   }
   else{
     // Ongoing outbreak -- observation ends at finite dateT
-    NumericVector probSam = pi*pgamma(dateT-ttree(_,0),shSam,scSam);
-    NumericVector sstatus = ifelse(is_na(ttree(_,1)), 1-probSam, pi*dgamma(ttree(_,1)-ttree(_,0),shSam,scSam));
-    NumericVector lsstatus = log(sstatus);
-    
+    NumericVector lprobSam = log(pi)+pgamma(dateT-ttree(_,0),shSam,scSam,1,1);
+    for(int i=0; i<lprobSam.size(); ++i){
+      lprobSam[i] = log_subtract_exp(0.0,lprobSam[i]);
+    }
+    NumericVector lsstatus = ifelse(is_na(ttree(_,1)), lprobSam, log(pi)+dgamma(ttree(_,1)-ttree(_,0),shSam,scSam,1));
     std::map<int, std::vector<int> > infMap; // Map from infector to infected
     std::vector<std::vector<int> > progeny(numCases);
     for(int i=0; i<numCases; ++i){
@@ -248,10 +260,10 @@ double probTTree(NumericMatrix ttree, double rOff, double pOff, double pi, doubl
       progeny[ttree(i,2)-1].push_back(i); // C++ index starts from 0
       infMap[ttree(i,2)-1] = progeny[ttree(i,2)-1]; 
     }
-    
     double accum = 0.0;
     double tinfmin = min(ttree(_,0));
     NumericVector wbar0 = wbar(tinfmin, dateT, rOff, pOff, pi, shGen, scGen, shSam, scSam, delta_t);
+    
     // wbar0.size = grid size +1 
     double gridStart = dateT-(wbar0.size()-1)*delta_t;
     
@@ -263,7 +275,6 @@ double probTTree(NumericMatrix ttree, double rOff, double pOff, double pi, doubl
         accum += (R::dgamma(ttree(progeny[i][j],0)-ttree(i,0), shGen, scGen, 1) - R::pgamma(dateT-ttree(i,0), shGen, scGen, 1, 1));
       }
     }
-    
     return sum(lsstatus) + accum;
   }
 }

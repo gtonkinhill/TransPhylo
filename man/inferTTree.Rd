@@ -7,8 +7,9 @@
 inferTTree(ptree, w.shape = 2, w.scale = 1, ws.shape = w.shape,
   ws.scale = w.scale, mcmcIterations = 1000, thinning = 1,
   startNeg = 100/365, startOff.r = 1, startOff.p = 0.5, startPi = 0.5,
-  updateNeg = T, updateOff.r = T, updateOff.p = F, updatePi = T,
-  startCTree = NA, updateTTree = TRUE, optiStart = T, dateT = Inf)
+  updateNeg = TRUE, updateOff.r = TRUE, updateOff.p = FALSE,
+  updatePi = TRUE, startCTree = NA, updateTTree = TRUE,
+  update.w.scale = FALSE, optiStart = TRUE, dateT = Inf)
 }
 \arguments{
 \item{ptree}{Phylogenetic tree}
@@ -44,6 +45,8 @@ inferTTree(ptree, w.shape = 2, w.scale = 1, ws.shape = w.shape,
 \item{startCTree}{Optional combined tree to start from}
 
 \item{updateTTree}{Whether or not to update the transmission tree}
+
+\item{update.w.scale}{Whether of not to update the parameter w.scale}
 
 \item{optiStart}{Whether or not to optimise the MCMC start point}
 

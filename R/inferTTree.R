@@ -5,6 +5,7 @@
 #' @param ws.shape Shape parameter of the Gamma probability density function representing the sampling time
 #' @param ws.scale Scale parameter of the Gamma probability density function representing the sampling time 
 #' @param update.w.scale Whether of not to update the parameter w.scale
+#' @param update.w.shape Whether of not to update the parameter w.shape
 #' @param mcmcIterations Number of MCMC iterations to run the algorithm for
 #' @param thinning MCMC thinning interval between two sampled iterations
 #' @param startNeg Starting value of within-host coalescent parameter Ne*g
@@ -26,10 +27,10 @@ inferTTree = function(ptree, w.shape=2, w.scale=1, ws.shape=w.shape, ws.scale=w.
                       mcmcIterations=1000, thinning=1, startNeg=100/365, startOff.r=1,
                       startOff.p=0.5, startPi=0.5, updateNeg=TRUE, updateOff.r=TRUE,
                       updateOff.p=FALSE, updatePi=TRUE, startCTree=NA, updateTTree=TRUE,
-                      update.w.scale=FALSE, optiStart=TRUE,dateT=Inf) {
+                      update.w.scale=FALSE, update.w.shape=FALSE, optiStart=TRUE, dateT=Inf) {
   
   if (update.w.scale && updatePi) stop("Error: can not estimate pi and w.scale simultaneously.")
-
+  
   ptree$ptree[,1]=ptree$ptree[,1]+runif(nrow(ptree$ptree))*1e-10#Ensure that all leaves have unique times
   for (i in (ceiling(nrow(ptree$ptree)/2)+1):nrow(ptree$ptree)) for (j in 2:3) 
     if (ptree$ptree[ptree$ptree[i,j],1]-ptree$ptree[i,1]<0) 
@@ -44,7 +45,7 @@ inferTTree = function(ptree, w.shape=2, w.scale=1, ws.shape=w.shape, ws.scale=w.
   else ctree<-startCTree
   ttree <- extractTTree(ctree)
   record <- vector('list',mcmcIterations/thinning)
-  pTTree <- probTTree(ttree$ttree,off.r,off.p,pi,w.shape,w.scale,ws.shape,ws.scale,dateT) 
+  pTTree <- probTTree(ttree$ttree,off.r,off.p,pi,w.shape,w.scale,ws.shape,ws.scale,dateT)
   pPTree <- probPTreeGivenTTree(ctree,neg) 
   pb <- txtProgressBar(min=0,max=mcmcIterations,style = 3)
   for (i in 1:mcmcIterations) {#Main MCMC loop
@@ -72,18 +73,18 @@ inferTTree = function(ptree, w.shape=2, w.scale=1, ws.shape=w.shape, ws.scale=w.
     }
     
     if (updateTTree) {
-    #Metropolis update for transmission tree 
-    prop <- proposal(ctree$ctree) 
-    ctree2 <- list(ctree=prop$tree,nam=ctree$nam)
-    ttree2 <- extractTTree(ctree2)
-    pTTree2 <- probTTree(ttree2$ttree,off.r,off.p,pi,w.shape,w.scale,ws.shape,ws.scale,dateT) 
-    pPTree2 <- probPTreeGivenTTree(ctree2,neg) 
-    if (log(runif(1)) < log(prop$qr)+pTTree2 + pPTree2-pTTree-pPTree)  { 
-      ctree <- ctree2 
-      ttree <- ttree2
-      pTTree <- pTTree2 
-      pPTree <- pPTree2 
-    } 
+      #Metropolis update for transmission tree 
+      prop <- proposal(ctree$ctree) 
+      ctree2 <- list(ctree=prop$tree,nam=ctree$nam)
+      ttree2 <- extractTTree(ctree2)
+      pTTree2 <- probTTree(ttree2$ttree,off.r,off.p,pi,w.shape,w.scale,ws.shape,ws.scale,dateT) 
+      pPTree2 <- probPTreeGivenTTree(ctree2,neg) 
+      if (log(runif(1)) < log(prop$qr)+pTTree2 + pPTree2-pTTree-pPTree)  { 
+        ctree <- ctree2 
+        ttree <- ttree2
+        pTTree <- pTTree2 
+        pPTree <- pPTree2 
+      } 
     }
     
     if (updateNeg) {
@@ -94,17 +95,29 @@ inferTTree = function(ptree, w.shape=2, w.scale=1, ws.shape=w.shape, ws.scale=w.
     }
     
     if (update.w.scale) {
-      #Metropolis update for w.scale, assuming Exp(1) prior 
+      #Metropolis update for w.scale, assuming Exp(1) prior shifted by 1e-3 or just under a day 
       w.scale.2 <- abs(w.scale + (runif(1)-0.5)*0.5)
+      if (w.scale.2<0.01) w.scale.2=0.02-w.scale.2
       pTTree2 <-probTTree(ttree$ttree,off.r,off.p,pi,w.shape,w.scale.2,ws.shape,ws.scale,dateT) 
-      if (log(runif(1)) < pTTree2-pTTree-w.scale.2+w.scale)  {
+      if (log(runif(1)) < pTTree2-pTTree+shifted_gamma_prior(w.scale.2)-shifted_gamma_prior(w.scale)) {
         w.scale <- w.scale.2
         pTTree <- pTTree2
       }
     }
     
+    if (update.w.shape) {
+      #Metropolis update for w.shape, assuming Exp(1) prior shifted by 1e-3 or just under a day 
+      w.shape.2 <- abs(w.shape + (runif(1)-0.5)*0.5)
+      if (w.shape.2<0.01) w.shape.2=0.02-w.shape.2
+      pTTree2 <-probTTree(ttree$ttree,off.r,off.p,pi,w.shape.2,w.scale,ws.shape,ws.scale,dateT)
+      if (log(runif(1)) < pTTree2-pTTree+shifted_gamma_prior(w.shape.2)-shifted_gamma_prior(w.shape)) {
+        w.shape <- w.shape.2
+        pTTree <- pTTree2
+      }
+    }
+    
     if (updateOff.r) {
-      #Metropolis update for off.r, assuming Exp(1) prior 
+      #Metropolis update for off.r, assuming prior exp(1)  
       off.r2 <- abs(off.r + (runif(1)-0.5)*0.5)
       pTTree2 <- probTTree(ttree$ttree,off.r2,off.p,pi,w.shape,w.scale,ws.shape,ws.scale,dateT) 
       if (log(runif(1)) < pTTree2-pTTree-off.r2+off.r)  {off.r <- off.r2;pTTree <- pTTree2}
@@ -128,6 +141,18 @@ inferTTree = function(ptree, w.shape=2, w.scale=1, ws.shape=w.shape, ws.scale=w.
     }
     
   }#End of main MCMC loop
-
+  
   return(record)
+}
+
+shifted_exp_prior <- function(x){
+  L <- 1e-3
+  return(-(x-L))
+}
+
+shifted_gamma_prior <- function(x){
+  L <- 1e-2
+  shape <- 4
+  scale <- 0.05
+  return((shape-1)*log(x-L)-(x-L)/scale-shape*log(scale)-log(gamma(shape)))
 }
