@@ -216,7 +216,9 @@ NumericVector wbar(double tinf, double dateT, double rOff, double pOff, double p
 
 
 // [[Rcpp::export]]
-double probTTree(NumericMatrix ttree, double rOff, double pOff, double pi, double shGen, double scGen, double shSam, double scSam, double dateT, double delta_t=0.01){
+double probTTree(NumericMatrix ttree, double rOff, double pOff, double pi,
+                 double shGen, double scGen, double shSam, double scSam,
+                 double dateT, double delta_t=0.01){
   
   int numCases = ttree.nrow();
   
