@@ -155,6 +155,6 @@ shifted_exp_prior <- function(x){
 shifted_gamma_prior <- function(x){
   L <- 1e-2
   shape <- 1
-  scale <- 0.2
+  scale <- 2
   return((shape-1)*log(x-L)-(x-L)/scale-shape*log(scale)-log(gamma(shape)))
 }

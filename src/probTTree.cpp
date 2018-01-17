@@ -20,6 +20,7 @@
 #include <boost/math/distributions/gamma.hpp>
 #include <limits>
 #include <iomanip>
+#include <cmath>
 using namespace Rcpp;
 
 struct wstar_functor
