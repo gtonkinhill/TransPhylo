@@ -1,6 +1,6 @@
 /* Rewrite probTTree with allowTransPostSamp = TRUE
- Calculates the log-probability of a transmission tree.
- @param ttree Transmission tree
+Calculates the log-probability of a transmission tree.
+@param ttree Transmission tree
 @param off.r First parameter of the negative binomial distribution for offspring number
 @param off.p Second parameter of the negative binomial distribution for offspring number
 @param pi probability of sampling an infected individual
@@ -19,8 +19,6 @@
 #include <boost/math/distributions/negative_binomial.hpp>
 #include <boost/math/distributions/gamma.hpp>
 #include <limits>
-#include <iomanip>
-#include <cmath>
 using namespace Rcpp;
 
 struct wstar_functor
@@ -129,7 +127,7 @@ double alpha(double tinf, int d, double p, double r, NumericVector wbar0, double
     k++;
     
     if(k>1e6) throw(Rcpp::exception("too many iterations, giving up!"));
-
+    
   }
   
   NumericVector ltoSumR = wrap(ltoSum); // Convert toSum to Rcpp NumericVector
@@ -144,7 +142,7 @@ double alpha(double tinf, int d, double p, double r, NumericVector wbar0, double
 NumericVector wbar(double tinf, double dateT, double rOff, double pOff, double pi, double shGen, double scGen, double shSam, double scSam, double delta_t)
 {
   
-
+  
   int n = std::round((dateT-tinf)/delta_t);
   if(n>1e4) throw(Rcpp::exception("error!! delta_t is too small."));
   double old_delta_t = delta_t;
@@ -196,7 +194,7 @@ NumericVector wbar(double tinf, double dateT, double rOff, double pOff, double p
     
     out[i] = log_sum_exp(F[i], sumPrev + log(delta_t));
     
-    if(isnan(out[i])) throw(Rcpp::exception("error!! NA value in calulating wbar."));
+    if(std::isnan(out[i])) throw(Rcpp::exception("error!! NA value in calulating wbar."));
     
     sumPrev = gam[0] + w[i+0];
     for(int j=0; j<n-i; ++j)
@@ -216,6 +214,19 @@ NumericVector wbar(double tinf, double dateT, double rOff, double pOff, double p
 }
 
 
+//' Calculates the log-probability of a transmission tree
+//' @param ttree Transmission tree
+//' @param rOff First parameter of the negative binomial distribution for offspring number
+//' @param pOff Second parameter of the negative binomial distribution for offspring number
+//' @param pi probability of sampling an infected individual
+//' @param shGen Shape parameter of the Gamma probability density function representing the generation time
+//' @param scGen Scale parameter of the Gamma probability density function representing the generation time 
+//' @param shSam Shape parameter of the Gamma probability density function representing the sampling time
+//' @param scSam Scale parameter of the Gamma probability density function representing the sampling time 
+//' @param dateT Date when process stops (this can be Inf for fully simulated outbreaks)
+//' @param delta_t Grid precision
+//' @return Probability of the transmission tree
+//' @export
 // [[Rcpp::export]]
 double probTTree(NumericMatrix ttree, double rOff, double pOff, double pi,
                  double shGen, double scGen, double shSam, double scSam,
@@ -224,12 +235,12 @@ double probTTree(NumericMatrix ttree, double rOff, double pOff, double pi,
   int numCases = ttree.nrow();
   
   if(shGen*scGen<0.001) throw(Rcpp::exception("error!! mean of gamma is too small."));
-
+  
   if(dateT == INFINITY){ // finished outbreak
     double wstar = wstar_rootFinder(pi, pOff, rOff);
     
     NumericVector lsstatus = ifelse(is_na(ttree(_,1)), log(1-pi), log(pi)+dgamma(ttree(_,1)-ttree(_,0),shSam,scSam,1));
-
+    
     std::map<int, std::vector<int> > infMap; // Map from infector to infected
     std::vector<std::vector<int> > progeny(numCases);
     for(int i=0; i<numCases; ++i){
